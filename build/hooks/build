@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# This script is used when automated build is executed on DockerHub.
+
+# Stop on error
+set -eu
+
+# Echo timestamp
+date
+
+# Available build-time environment variables
+echo SOURCE_BRANCH=$SOURCE_BRANCH
+echo SOURCE_COMMIT=$SOURCE_COMMIT
+echo COMMIT_MSG=$COMMIT_MSG
+echo DOCKER_REPO=$DOCKER_REPO
+echo SOURCE_BRANCH=$SOURCE_BRANCH
+echo DOCKERFILE_PATH=$DOCKERFILE_PATH
+echo DOCKER_TAG=$DOCKER_TAG
+echo IMAGE_NAME=$IMAGE_NAME
+
+echo Detects architecture specification.
+ARCH_SPEC=${DOCKER_TAG%%-*}
+QEMU_ARCH=
+BUILD_ARCH=
+TAG_BODY=
+case ${ARCH_SPEC} in
+	'arm32v7')
+		QEMU_ARCH=arm
+		BUILD_ARCH=${ARCH_SPEC}
+		TAG_BODY=${DOCKER_TAG#*-}
+		;;
+	'arm64v8')
+		QEMU_ARCH=aarch64
+		BUILD_ARCH=${ARCH_SPEC}
+		TAG_BODY=${DOCKER_TAG#*-}
+		;;
+	'i386')
+		QEMU_ARCH=i386
+		BUILD_ARCH=${ARCH_SPEC}
+		TAG_BODY=${DOCKER_TAG#*-}
+		;;
+	*)
+		echo 'Build with default architecture.'
+		TAG_BODY=${DOCKER_TAG}
+		;;
+esac
+
+# Determine version from tag
+KALLITHEA_VER=
+if [ "$TAG_BODY" != "latest" ]; then
+	KALLITHEA_VER=$TAG_BODY
+fi
+
+# Version informations
+echo ARCH_SPEC=$ARCH_SPEC
+echo QEMU_ARCH=$QEMU_ARCH
+echo BUILD_ARCH=$BUILD_ARCH
+echo KALLITHEA_VER=$KALLITHEA_VER
+
+# Build
+if [ "${QEMU_ARCH}" = "" ]; then
+	echo Build for default architecture
+    docker build --build-arg KALLITHEA_VER=$KALLITHEA_VER -f "${DOCKERFILE_PATH}" -t "${IMAGE_NAME}" .
+else
+	echo Download qemu
+	QEMU_VER=5.0.0-2
+	QEMU_URL=https://github.com/multiarch/qemu-user-static/releases/download/v${QEMU_VER}/qemu-${QEMU_ARCH}-static.tar.gz
+
+	echo Extract qemu
+	curl -SL "${QEMU_URL}" | tar xzv
+
+	echo Qemu registration
+	docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+	echo Insert a copy of qemu into Dockerfile
+	sed -ri "s/^(from\\s*.*)\$/\\1\nCOPY qemu-${QEMU_ARCH}-static \\/usr\\/bin\\//i1" "${DOCKERFILE_PATH}"
+
+	echo Build for specified architecture '${BUILD_ARCH}'
+	docker build --build-arg KALLITHEA_VER=$KALLITHEA_VER --build-arg BUILD_ARCH=${BUILD_ARCH} -f "${DOCKERFILE_PATH}" -t "${IMAGE_NAME}" .
+fi

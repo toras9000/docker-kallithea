@@ -1,0 +1,40 @@
+version: '2'
+services:
+  db:
+    image: postgres:12
+    restart: always
+    volumes:
+      - ../volumes/kallithea/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=kallithea_user
+      - POSTGRES_PASSWORD=kallithea_secret
+      - POSTGRES_DB=kallithea_store
+
+  app:
+    image: toras9000/kallithea:0.5.0
+    build:
+      context: ./build
+      args:
+        - KALLITHEA_VER=0.5.0
+    restart: always
+    links:
+      - db:db-container
+    ports:
+      - "8010:5000"
+      - "2222:22"
+    volumes:
+      - ../volumes/kallithea/app/config:/kallithea/config
+      - ../volumes/kallithea/app/repos:/kallithea/repos
+      - ../volumes/kallithea/app/host_keys:/kallithea/host_keys
+      - ../volumes/kallithea/app/ssh:/home/kallithea/.ssh
+    environment:
+      - KALLITHEA_EXTERNAL_DB=postgres://kallithea_user:kallithea_secret@db-container/kallithea_store
+      - KALLITHEA_ADMIN_USER=admin
+      - KALLITHEA_ADMIN_PASS=admin123
+      - KALLITHEA_ADMIN_MAIL=admin@example.com
+      - KALLITHEA_LOCALE=ja_JP.UTF-8
+      - KALLITHEA_REPOSORT_IDX=4
+      - KALLITHEA_REPOSORT_ORDER=desc
+      - KALLITHEA_FIX_PERMISSION=TRUE
+      - KALLITHEA_FIX_REPOS_PERMISSION=FALSE
+#      - KALLITHEA_DB_MIGRATION=TRUE

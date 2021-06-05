@@ -1,3 +1,4 @@
-*.sh        text eol=lf
-*.yml       text eol=lf
-Dockerfile  text eol=lf
+*.sh            text eol=lf
+*.yml           text eol=lf
+Dockerfile      text eol=lf
+build/hooks/*   text eol=lf
