@@ -11,11 +11,11 @@ services:
       - POSTGRES_DB=kallithea_store
 
   app:
-    image: toras9000/kallithea:0.6.2
+    image: toras9000/kallithea:0.6.3
     build:
       context: ./build
       args:
-        - KALLITHEA_VER=0.6.2
+        - KALLITHEA_VER=0.6.3
     restart: always
     links:
       - db:db-container
