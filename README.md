@@ -6,6 +6,7 @@ This image enables the SSH repository access function implemented in kallithea v
 ## Tags
 
 - latest ([Dockerfile](https://github.com/toras9000/docker-kallithea/tree/main/build))
+- 0.7.0
 - 0.6.3
 - 0.6.2
 - 0.6.1
