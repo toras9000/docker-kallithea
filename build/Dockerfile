@@ -23,7 +23,7 @@ RUN : Prepare kallithea execution user. \
  && useradd -m -c '' -g kallithea kallithea
 
 # Package version when installing by pip. ex.) 0.5.0
-ARG KALLITHEA_VER=0.6.1
+ARG KALLITHEA_VER=0.6.2
 
 RUN : This is only needed for kallithea installation. \
  && curl -sL https://deb.nodesource.com/setup_14.x | bash - \
