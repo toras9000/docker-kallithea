@@ -51,11 +51,14 @@ fi
 # Path to the configuration file
 KALLITHEA_INI=/kallithea/config/kallithea.ini
 
-# kallithea installation directory
-KALLITEHA_INSTALL_DIR=/home/kallithea/.local/lib/python2.7/site-packages/kallithea
-
 # python bin
-PYTHON_BIN=python
+PYTHON_BIN=python3
+
+# packages path
+PYTHON_PACKAGES=$(su-exec kallithea:kallithea $PYTHON_BIN -m site --user-site)
+
+# kallithea installation directory
+KALLITEHA_INSTALL_DIR=$PYTHON_PACKAGES/kallithea
 
 # Get the installed version of kallithea.
 INSTALL_KALLITHEA_VER=$(su-exec kallithea:kallithea $PYTHON_BIN -c "import kallithea;print(kallithea.__version__)")
@@ -65,12 +68,6 @@ function call_python()
 {
     su-exec kallithea:kallithea $PYTHON_BIN "$@"
 }
-
-# Patches for bug. (ver. 0.5.0 - 0.5.2)
-# Extra whitespace causes problems, depending on the version of the module.
-PATCH_FILE=$KALLITEHA_INSTALL_DIR/model/db.py
-sed -i "s/relationship('UserUserGroupToPerm '/relationship('UserUserGroupToPerm'/1" "$PATCH_FILE"
-sed -i "s/relationship('UserGroupUserGroupToPerm '/relationship('UserGroupUserGroupToPerm'/1" "$PATCH_FILE"
 
 # Create and setup ini file
 function create_setup_ini_file()
@@ -115,13 +112,6 @@ if [ "$KALLITHEA_DB_MIGRATION" = "TRUE" ]; then
     if [ -f "$KALLITHEA_INI_MG_READY" ]; then echo "Processing cannot continue because '${KALLITHEA_INI_MG_READY##*/}' exists."; exit 1; fi
     if [ -f "$KALLITHEA_MG_FINISH" ];    then echo "Processing cannot continue because '${KALLITHEA_MG_FINISH##*/}' exists.";    exit 1; fi
     if [ -f "$KALLITHEA_MG_ERROR" ];     then echo "Processing cannot continue because '${KALLITHEA_MG_ERROR##*/}' exists.";     exit 1; fi
-
-    # Patches for bug. (ver. 0.5.1)
-    # A migration execution error will occur.
-    if [ "$INSTALL_KALLITHEA_VER" = "0.5.1" ]; then
-        PATCH_FILE=$KALLITEHA_INSTALL_DIR/alembic/env.py
-        sed -ri "s/^\\s*(import logging)\$/import os\n\\1/1" "$PATCH_FILE"
-    fi
 
     # Generates a new version of the configuration file.
     echo "Creating new configuration file '${KALLITHEA_INI_MG_NEW##*/}' ..."

@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -12,9 +12,9 @@ ENV LANG=C.UTF-8
 RUN <<-EOL
     : This is what to keep installed in the image.
     apt-get update
-    apt-get install -y --no-install-recommends                                      \
-                    dumb-init ssh curl locales ca-certificates busybox-static       \
-                    mercurial git python python-setuptools libpq5 libmysqlclient20
+    apt-get install -y --no-install-recommends                                 \
+                    dumb-init ssh curl locales ca-certificates busybox-static  \
+                    mercurial git python3 libpq5 libmysqlclient21
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 EOL
@@ -25,7 +25,7 @@ RUN <<-EOL
     useradd -m -c '' -g kallithea kallithea
 EOL
 
-# Package version when installing by pip. ex.) 0.5.0
+# Package version when installing by pip. ex.) 0.6.0
 ARG KALLITHEA_VER=x.x.x
 
 RUN <<-EOL
@@ -33,10 +33,10 @@ RUN <<-EOL
     if [ "$KALLITHEA_VER" = "x.x.x" ]; then false; fi
     
     : This is only needed for kallithea installation.
-    curl -sL https://deb.nodesource.com/setup_10.x | bash -
-    apt-get install -y --no-install-recommends                          \
-                    build-essential libffi-dev                          \
-                    python-pip python-dev libpq-dev libmysqlclient-dev  \
+    curl -sL https://deb.nodesource.com/setup_14.x | bash -
+    apt-get install -y --no-install-recommends                \
+                    build-essential libffi-dev pkg-config     \
+                    python3-dev libpq-dev libmysqlclient-dev  \
                     nodejs
     
     : Build su-exec
@@ -45,19 +45,22 @@ RUN <<-EOL
     mv /tmp/su-exec/su-exec /usr/bin/
     rm -rf /tmp/su-exec
     
+    : Install pip.
+    curl -sL https://bootstrap.pypa.io/get-pip.py | su-exec kallithea:kallithea python3 - "setuptools < 58.0" --user
+    
     : Install kallithea and optional packages.
-    su-exec kallithea:kallithea pip install --no-cache-dir --user                                          \
-                                            kallithea${KALLITHEA_VER:+==$KALLITHEA_VER} "PasteDeploy<3.0"  \
-                                            psycopg2                                                       \
-                                            mysqlclient
+    su-exec kallithea:kallithea python3 -m pip install --no-cache-dir --user                        \
+                                                       kallithea${KALLITHEA_VER:+==$KALLITHEA_VER}  \
+                                                       psycopg2                                     \
+                                                       mysqlclient
     
     : Preparing the front-end files.
     su-exec kallithea:kallithea kallithea-cli front-end-build
     
     : Clean up installation materials.
-    apt-get purge -y                                                  \
-                  build-essential libffi-dev                          \
-                  python-pip python-dev libpq-dev libmysqlclient-dev  \
+    apt-get purge -y                                        \
+                  build-essential libffi-dev pkg-config     \
+                  python3-dev libpq-dev libmysqlclient-dev  \
                   nodejs
     apt-get autoremove -y
     apt-get clean
