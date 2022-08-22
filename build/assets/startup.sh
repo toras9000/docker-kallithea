@@ -116,6 +116,13 @@ if [ "$KALLITHEA_DB_MIGRATION" = "TRUE" ]; then
     if [ -f "$KALLITHEA_MG_FINISH" ];    then echo "Processing cannot continue because '${KALLITHEA_MG_FINISH##*/}' exists.";    exit 1; fi
     if [ -f "$KALLITHEA_MG_ERROR" ];     then echo "Processing cannot continue because '${KALLITHEA_MG_ERROR##*/}' exists.";     exit 1; fi
 
+    # Patches for bug. (ver. 0.5.1)
+    # A migration execution error will occur.
+    if [ "$INSTALL_KALLITHEA_VER" = "0.5.1" ]; then
+        PATCH_FILE=$KALLITEHA_INSTALL_DIR/alembic/env.py
+        sed -ri "s/^\\s*(import logging)\$/import os\n\\1/1" "$PATCH_FILE"
+    fi
+
     # Generates a new version of the configuration file.
     echo "Creating new configuration file '${KALLITHEA_INI_MG_NEW##*/}' ..."
     create_setup_ini_file "$KALLITHEA_INI_MG_NEW"
