@@ -1,0 +1,73 @@
+name: Docker
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on:
+  push:
+    branches:
+#      - 'main'
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      with_latest:
+        type: boolean
+        description: 'With latest tag'
+        required: false
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get repository info
+        id: repo-info
+        run: |
+          git fetch --no-tags --prune --depth=1 origin latest || true
+          echo "latest-hash=$(git show --quiet --format=%H origin/latest || echo '')"  >> "$GITHUB_OUTPUT"
+          echo "trigger-hash=$(git show --quiet --format=%H ${{ github.ref }})"        >> "$GITHUB_OUTPUT"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: toras9000
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log into registry ghcr.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: bake-image
+        uses: docker/bake-action@v4
+        with:
+          files: ./docker-bake.hcl
+          pull: true
+          push: true
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha
+        env:
+            WORKFLOW_GITHUB_REF: ${{ github.ref }}
+            WITH_LATEST_TAG: ${{ steps.repo-info.outputs.trigger-hash == steps.repo-info.outputs.latest-hash }}
