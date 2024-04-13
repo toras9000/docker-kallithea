@@ -6,8 +6,12 @@ variable "KALLITHEA_IMAGE_VER" {
     default = "0.7.0"
 }
 
+variable "KALLITHEA_PATCH_REV" {
+    default = "ed117efc9ae9"
+}
+
 variable "KALLITHEA_FLAVOR" {
-    default = [""]
+    default = ["patched-${KALLITHEA_PATCH_REV}", "patched1"]
 }
 
 group "default" {
@@ -22,6 +26,7 @@ target "kallithea" {
   context = "./build"
   args = {
     KALLITHEA_VER = "${KALLITHEA_IMAGE_VER}"
+    KALLITHEA_REV = "${KALLITHEA_PATCH_REV}"
   }
   platforms = [
     "linux/amd64",

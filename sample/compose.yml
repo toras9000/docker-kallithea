@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - kallithea-db-container
+    healthcheck:
+      test: pg_isready --quiet --dbname=$${POSTGRES_DB} --username=$${POSTGRES_USER} || exit 1
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ./volumes/kallithea/db:/var/lib/postgresql/data
+    environment:
+      - PGDATA=/var/lib/postgresql/data/kallithea-data
+      - POSTGRES_USER=kallithea_user
+      - POSTGRES_PASSWORD=kallithea_secret
+      - POSTGRES_DB=kallithea_store
+
+  app:
+    image: toras9000/kallithea-mp:0.7.0-patched1
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      default:
+      frontend:
+        aliases:
+          - kallithea-app-container
+    healthcheck:
+      test: curl -f http://localhost:5000 || exit 1
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ./volumes/kallithea/app/config:/kallithea/config
+      - ./volumes/kallithea/app/repos:/kallithea/repos
+      - ./volumes/kallithea/app/host_keys:/kallithea/host_keys
+      - ./volumes/kallithea/app/ssh:/home/kallithea/.ssh
+    environment:
+      - KALLITHEA_DB_PRE_CREATED=FALSE
+      - KALLITHEA_EXTERNAL_DB=postgres://kallithea_user:kallithea_secret@kallithea-db-container/kallithea_store
+      - KALLITHEA_ADMIN_USER=admin
+      - KALLITHEA_ADMIN_PASS=admin123
+      - KALLITHEA_ADMIN_MAIL=admin@example.com
+      - KALLITHEA_LOCALE=ja_JP.UTF-8
+      - KALLITHEA_REMOTE_ADDR_VAR=HTTP_X_FORWARDED_FOR
+      - KALLITHEA_URL_SCHEME_VAR=HTTP_X_FORWARDED_PROTO
+      - KALLITHEA_REPOSORT_IDX=5
+      - KALLITHEA_REPOSORT_ORDER=desc
+      - KALLITHEA_FIX_PERMISSION=TRUE
+      - KALLITHEA_FIX_REPOS_PERMISSION=FALSE
+      - KALLITHEA_DEFAULT_REPO_GIT=TRUE
+      - KALLITHEA_EXTRA_FIELD=TRUE
+      - KALLITHEA_EXTERNAL_SSH_PORT=2222
+#      - KALLITHEA_DB_MIGRATION=TRUE
+
+  proxy:
+    image: nginx:1.25
+    restart: unless-stopped
+    command: sh -c "exec find /work/certs/ca -type f -print0 | xargs -0 chmod 444 && exec nginx -g 'daemon off;'"
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      frontend:
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./assets/configs/server:/etc/nginx/conf.d:ro
+      - ./assets/certs:/work/certs
+
+networks:
+  frontend:
