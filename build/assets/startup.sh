@@ -94,6 +94,18 @@ function create_setup_ini_file()
         CONFIG_OPTIONS+=("ssh_locale=$KALLITHEA_SSH_LOCALE")
     fi
 
+    # Setting: Remote address variable
+    if [ -n "$KALLITHEA_REMOTE_ADDR_VAR" ]; then
+        echo "Setting client address variable"
+        CONFIG_OPTIONS+=("remote_addr_variable=$KALLITHEA_REMOTE_ADDR_VAR")
+    fi
+
+    # Setting: URL scheme variable
+    if [ -n "$KALLITHEA_URL_SCHEME_VAR" ]; then
+        echo "Setting URL scheme variable"
+        CONFIG_OPTIONS+=("url_scheme_variable=$KALLITHEA_URL_SCHEME_VAR")
+    fi
+
     # Generate a configuration file.
     su-exec kallithea:kallithea kallithea-cli config-create "$INI_FILE_PATH" "${CONFIG_OPTIONS[@]}"
 }

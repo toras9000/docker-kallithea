@@ -7,6 +7,8 @@ This image enables the SSH repository access function implemented in kallithea v
 
 - 0.7.0
     - Version 0.7.0 of the pip package.
+- 0.7.0-patched1
+    - Version overwritten with [changesets from the official source](https://kallithea-scm.org/repos/kallithea/changelog/ed117efc9ae952bbab966a267bbd2297d31b05e2/).
 
 ## Data location
 
@@ -49,6 +51,12 @@ Administrator account e-mail (default: `admin@example.com`)
 SQLAlchemy connection string when using an external database.See [SQLAlchemy documentation](https://docs.sqlalchemy.org/en/12/core/engines.html#database-urls) for examples)  
 This image supports PostgreSQL (by psycopg2) and MySQL (by mysqlclient).  
 (empty by default, SQLite is used.)  
+
+- `KALLITHEA_REMOTE_ADDR_VAR`  
+WSGI environment variable to get the IP address of the client. (default: `REMOTE_ADDR`)  
+
+- `KALLITHEA_URL_SCHEME_VAR`  
+WSGI environment variable to get the protocol (http or https) of the client connection (default wsgi.url_scheme)  
 
 - `KALLITHEA_DB_PRE_CREATED`  
 If set to TRUE, use an existing database. (FALSE by default)  
@@ -117,7 +125,7 @@ The following is an example of a simple docker-compose.yml for Sqlite.
 ```
 services:
   app:
-    image: toras9000/kallithea-mp:0.7.0
+    image: toras9000/kallithea-mp:0.7.0-patched1
     restart: unless-stopped
     ports:
       - "8010:5000"
