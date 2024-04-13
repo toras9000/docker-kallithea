@@ -7,8 +7,8 @@ This image enables the SSH repository access function implemented in kallithea v
 
 - 0.7.0
     - Version 0.7.0 of the pip package.
-- 0.7.0-patched1
-    - Version overwritten with [changesets from the official source](https://kallithea-scm.org/repos/kallithea/changelog/ed117efc9ae952bbab966a267bbd2297d31b05e2/).
+- 0.7.0-patched2
+    - Version overwritten with [changesets from the official source](https://kallithea-scm.org/repos/kallithea/changelog/36a36ebdf4bbc4da77c41cabdbdf4a688e8fbeea/).
 
 ## Data location
 
@@ -125,7 +125,7 @@ The following is an example of a simple docker-compose.yml for Sqlite.
 ```
 services:
   app:
-    image: toras9000/kallithea-mp:0.7.0-patched1
+    image: toras9000/kallithea-mp:0.7.0-patched2
     restart: unless-stopped
     ports:
       - "8010:5000"
