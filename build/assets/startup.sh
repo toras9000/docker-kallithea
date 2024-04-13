@@ -217,6 +217,16 @@ if [ -n "$KALLITHEA_REPOSORT_IDX" ]; then
     sed -ri "s/^                order: \\[\\[1, \"asc\"\\]\\],\$/                order: [[${KRS_IDX}, \"${KRS_ODR}\"]],/1" "$PATCH_FILE"
 fi
 
+# Copy extensions template
+if [ "$KALLITHEA_EXTENSIONS_TEMPLATE" = "REPLACE" ] || [ ! -e "/kallithea/config/extensions.py" ]; then
+    cp "/kallithea/templates/extensions.py" "/kallithea/config/extensions.py"
+    if [ -n "$KALLITHEA_WEBHOOK_ALLOW_ADDRS" ]; then
+        allow_list=($KALLITHEA_WEBHOOK_ALLOW_ADDRS)
+        allow_list=$(printf "'%s', " "${allow_list[@]}")
+        sed -ri "s|^\\s*webhook_allow_list\\s*=\\s*\\('http://dummy.placeholder.example'\\)\\s*\$|webhook_allow_list = \\(${allow_list}\\)|1" "/kallithea/config/extensions.py"
+    fi
+fi
+
 # Database modification
 KALLITHEA_DB_URL=$(grep -m 1 -P -o  "^\\s*sqlalchemy\\.url\\s*=\\s*\\K[^\r\n#]+" /kallithea/config/kallithea.ini)
 KALLITHEA_DB_URL=${KALLITHEA_DB_URL/\%\(here\)s/\/kallithea\/config}
