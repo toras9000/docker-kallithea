@@ -1,0 +1,283 @@
+From 2d5397b60095785934ce6629554a464b19734893 Mon Sep 17 00:00:00 2001
+From: toras9000 <toras9000@example.com>
+Date: Wed, 2 Aug 2023 20:25:03 +0900
+Subject: [PATCH] api: add endpoint for extra fields
+
+---
+ kallithea/controllers/api/api.py | 123 +++++++++++++++++++++++++++++
+ kallithea/tests/api/api_base.py  | 131 +++++++++++++++++++++++++++++++
+ 2 files changed, 254 insertions(+)
+
+diff --git a/kallithea/controllers/api/api.py b/kallithea/controllers/api/api.py
+index 28e8625f0..fab83d18d 100644
+--- a/kallithea/controllers/api/api.py
++++ b/kallithea/controllers/api/api.py
+@@ -1995,3 +1995,126 @@ class ApiController(JSONRPCController):
+             # NOTE: no explicit check that removed reviewers were actually present.
+             'removed': [x.username for x in remove_objs],
+         }
++
++    # permission check inside
++    def get_repo_extra_fields(self, repoid):
++        """
++        OUTPUT::
++
++            id : <id_given_in_input>
++            result : [
++                      {
++                        "key"   : "<field_key>",
++                        "value" : "<field_value>",
++                        "label" : "<field_label>",
++                        "desc"  : "<field_desc>",
++                        "type"  : "<field_type>"
++                      },
++                      …
++                     ]
++            error : null
++        """
++        repo = get_repo_or_error(repoid)
++        if not HasRepoPermissionLevel('admin')(repo.repo_name):
++            raise JSONRPCError('Access denied to repo `%s`' % repo.repo_name)
++
++        # Even if the extra field setting is disabled, reading may still be allowed.
++
++        def field_api_data(field):
++            return {
++                'key': db.RepositoryField.un_prefix_key(field.field_key),
++                'value': field.field_value,
++                'label': field.field_label,
++                'desc': field.field_desc,
++                'type': field.field_type,
++            }
++            
++        data = [field_api_data(field) for field in repo.extra_fields]
++
++        return data
++
++    # permission check inside
++    def create_repo_extra_field(self, repoid, field_key, field_label=None, field_desc=None, field_value=None):
++        """
++        OUTPUT::
++
++            id : <id_given_in_input>
++            result : {
++                "msg": "created extra field key:<field_key>",
++                "extra_field": {
++                    "key"   : "<field_key>",
++                    "value" : "<field_value>",
++                    "label" : "<field_label>",
++                    "desc"  : "<field_desc>",
++                    "type"  : "<field_type>"
++                }
++            }
++        """
++        repo = get_repo_or_error(repoid)
++        if not HasRepoPermissionLevel('admin')(repo.repo_name):
++            raise JSONRPCError('Access denied to repo `%s`' % repo.repo_name)
++
++        ex_field_setting = db.Setting.get_by_name('repository_fields')
++        if (ex_field_setting is None) or (not ex_field_setting.app_settings_value):
++            raise JSONRPCError('Extra field setting is disabled.')
++
++        try:
++            field = db.RepositoryField()
++            field.repository = repo
++            field.field_type = 'str'
++            field.field_key = field_key
++            field.field_desc = field_desc if field_desc is not None else ''
++            field.field_label = field_label if field_label is not None else ''
++            field.field_value = field_value if field_value is not None else ''
++            meta.Session().add(field)
++            meta.Session().commit()
++            
++            return {
++                'msg': 'created extra field key:%s' % field_key,
++                'extra_field':
++                {
++                    'type': field.field_type,
++                    'key': db.RepositoryField.un_prefix_key(field.field_key),
++                    'label': field.field_label,
++                    'desc': field.field_desc,
++                    'value': field.field_value,
++                },
++            }
++
++        except Exception:
++            log.error(traceback.format_exc())
++            raise JSONRPCError('failed to create extra field key:%s' % field_key)
++
++    # permission check inside
++    def delete_repo_extra_field(self, repoid, field_key):
++        """
++        OUTPUT::
++
++            id : <id_given_in_input>
++            result : {
++                "msg": "created extra field key:<field_key>"
++            }
++        """
++        repo = get_repo_or_error(repoid)
++        if not HasRepoPermissionLevel('admin')(repo.repo_name):
++            raise JSONRPCError('Access denied to repo `%s`' % repo.repo_name)
++
++        ex_field_setting = db.Setting.get_by_name('repository_fields')
++        if (ex_field_setting is None) or (not ex_field_setting.app_settings_value):
++            raise JSONRPCError('Extra field setting is disabled.')
++
++        field = db.RepositoryField.get_by_key_name(field_key, repo)
++        if field is None:
++            raise JSONRPCError('Extra field `%s` does not exist' % field_key)
++            
++        try:
++            meta.Session().delete(field)
++            meta.Session().commit()
++            
++            return {
++                'msg': 'deleted extra field key:%s' % field_key,
++            }
++
++        except Exception:
++            log.error(traceback.format_exc())
++            raise JSONRPCError('failed to delete extra field key:%s' % field_ke)
+diff --git a/kallithea/tests/api/api_base.py b/kallithea/tests/api/api_base.py
+index 609a879c2..5acd3c93e 100644
+--- a/kallithea/tests/api/api_base.py
++++ b/kallithea/tests/api/api_base.py
+@@ -3033,3 +3033,134 @@ class _BaseTestApi(object):
+ 
+         self._compare_error(random_id, "Invalid request. Neither 'add' nor 'remove' is specified.", given=response.body)
+         assert ext_json.loads(response.body)['result'] is None
++
++    def test_api_get_repo_extra_fields(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1',
++                                            field_label='testlabel1', field_desc='testdesc1')
++            fixture.create_repo_extra_field(repo, field_key='testkey2', field_value='testval2',
++                                            field_label='testlabel2', field_desc='testdesc2')
++
++            id_, params = _build_data(self.apikey_regular, 'get_repo_extra_fields', repoid=repo_name)
++            response = api_call(self, params)
++
++            expected = [
++                { 'key': 'testkey1', 'value': 'testval1', 'label': 'testlabel1', 'desc': 'testdesc1', 'type': 'str', },
++                { 'key': 'testkey2', 'value': 'testval2', 'label': 'testlabel2', 'desc': 'testdesc2', 'type': 'str', },
++            ]
++
++            self._compare_ok(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_create_repo_extra_field(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++
++            field_key = 'testkey1'
++            assert db.RepositoryField.get_by_key_name(field_key, repo) is None
++
++            args = { 'field_key': field_key, 'field_label': 'testlabel1', 'field_desc': 'testdesc1', 'field_value': 'testval1', }
++            id_, params = _build_data(self.apikey_regular, 'create_repo_extra_field', repoid=repo_name, **args)
++            response = api_call(self, params)
++
++            expected = {
++                'msg': 'created extra field key:%s' % field_key,
++                'extra_field': { 'type': 'str', 'key': field_key, 'label': 'testlabel1', 'desc': 'testdesc1', 'value': 'testval1', },
++            }
++            self._compare_ok(id_, expected, given=response.body)
++
++            field = db.RepositoryField.get_by_key_name(field_key, repo)
++            assert field is not None
++            assert field.field_type  == 'str'
++            assert field.field_key   == field_key
++            assert field.field_label == 'testlabel1'
++            assert field.field_desc  == 'testdesc1'
++            assert field.field_value == 'testval1'
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_create_repo_extra_field_minimum(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++
++            field_key = 'testkey1'
++            args = { 'repoid': repo_name, 'field_key': field_key, }
++            id_, params = _build_data(self.apikey_regular, 'create_repo_extra_field', **args)
++            response = api_call(self, params)
++
++            expected = {
++                'msg': 'created extra field key:%s' % field_key,
++                'extra_field': { 'type': 'str', 'key': field_key, 'label': '', 'desc': '', 'value': '', },
++            }
++            self._compare_ok(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_create_repo_extra_field_dpplicate(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1')
++
++            field_key = 'testkey1'
++            args = { 'repoid': repo_name, 'field_key': field_key, }
++            id_, params = _build_data(self.apikey_regular, 'create_repo_extra_field', **args)
++            response = api_call(self, params)
++
++            expected = 'failed to create extra field key:%s' % field_key
++            self._compare_error(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_create_repo_extra_field_disabled(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', False, 'bool') # extra_fields disabled
++
++            field_key = 'testkey'
++            args = { 'repoid': repo_name, 'field_key': field_key, }
++            id_, params = _build_data(self.apikey_regular, 'create_repo_extra_field', **args)
++            response = api_call(self, params)
++
++            expected = 'Extra field setting is disabled.'
++            self._compare_error(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_delete_repo_extra_field(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1')
++            fixture.create_repo_extra_field(repo, field_key='testkey2', field_value='testval2')
++
++            args = { 'repoid': repo_name, 'field_key': 'testkey2', }
++            id_, params = _build_data(self.apikey_regular, 'delete_repo_extra_field', **args)
++            response = api_call(self, params)
++
++            expected = {
++                'msg': 'deleted extra field key:testkey2',
++            }
++            self._compare_ok(id_, expected, given=response.body)
++
++            assert db.RepositoryField.get_by_key_name('testkey2', repo) is None
++            assert db.RepositoryField.get_by_key_name('testkey1', repo) is not None
++        finally:
++            fixture.destroy_repo(repo_name)
+-- 
+2.45.2.windows.1
+

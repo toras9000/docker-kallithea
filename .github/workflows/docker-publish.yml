@@ -11,6 +11,7 @@ on:
 #      - 'main'
       - 'v*.*.*'
       - 'v*.*.*-patched*'
+      - 'v*.*.*-private*'
   workflow_dispatch:
     inputs:
       with_latest:

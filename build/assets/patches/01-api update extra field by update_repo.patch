@@ -1,0 +1,153 @@
+From f5a5e9ac75da54f39682d8e92e0f389515d1ba8b Mon Sep 17 00:00:00 2001
+From: toras9000 <toras9000@example.com>
+Date: Tue, 1 Aug 2023 21:28:39 +0900
+Subject: [PATCH] api: update extra field by update_repo
+
+---
+ kallithea/controllers/api/api.py | 13 ++++++-
+ kallithea/tests/api/api_base.py  | 66 ++++++++++++++++++++++++++++++++
+ kallithea/tests/fixture.py       | 13 +++++++
+ 3 files changed, 91 insertions(+), 1 deletion(-)
+
+diff --git a/kallithea/controllers/api/api.py b/kallithea/controllers/api/api.py
+index e5d7118f0..28e8625f0 100644
+--- a/kallithea/controllers/api/api.py
++++ b/kallithea/controllers/api/api.py
+@@ -1017,7 +1017,8 @@ class ApiController(JSONRPCController):
+                     description=None, private=None,
+                     clone_uri=None, landing_rev=None,
+                     enable_statistics=None,
+-                    enable_downloads=None):
++                    enable_downloads=None,
++                    extra_fields=None):
+         """
+         Updates repo
+         """
+@@ -1037,6 +1038,11 @@ class ApiController(JSONRPCController):
+                     'Only Kallithea admin can specify `owner` param'
+                 )
+ 
++        if extra_fields is not None:
++            ex_field_setting = db.Setting.get_by_name('repository_fields')
++            if (ex_field_setting is None) or (not ex_field_setting.app_settings_value):
++                raise JSONRPCError('Extra field setting is disabled.')
++
+         updates = {}
+         repo_group = group
+         if repo_group is not None:
+@@ -1056,6 +1062,11 @@ class ApiController(JSONRPCController):
+             store_update(updates, enable_statistics, 'repo_enable_statistics')
+             store_update(updates, enable_downloads, 'repo_enable_downloads')
+ 
++            if isinstance(extra_fields, dict):
++                for key, val in extra_fields.items():
++                    if (key is not None) and (val is not None):
++                        store_update(updates, val, db.RepositoryField.PREFIX + key)
++
+             RepoModel().update(repo, **updates)
+             meta.Session().commit()
+             return dict(
+diff --git a/kallithea/tests/api/api_base.py b/kallithea/tests/api/api_base.py
+index b6a9d237b..609a879c2 100644
+--- a/kallithea/tests/api/api_base.py
++++ b/kallithea/tests/api/api_base.py
+@@ -1243,6 +1243,72 @@ class _BaseTestApi(object):
+         finally:
+             fixture.destroy_repo(repo_name)
+ 
++    def test_api_update_repo_extra_field_change(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1')
++            fixture.create_repo_extra_field(repo, field_key='testkey2', field_value='testval2')
++            
++            expected = {
++                'msg': 'updated repo ID:%s %s' % (repo.repo_id, repo_name),
++                'repository': repo.get_api_data()
++            }
++            expected['repository']['ex_testkey1'] = 'testval1'
++            expected['repository']['ex_testkey2'] = 'changeval'
++            
++            updates = { 'extra_fields': { 'testkey2': 'changeval', }, }
++            id_, params = _build_data(self.apikey_regular, 'update_repo', repoid=repo_name, **updates)
++            response = api_call(self, params)
++
++            self._compare_ok(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_update_repo_extra_field_missing(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', True, 'bool') # extra_fields enabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1')
++            fixture.create_repo_extra_field(repo, field_key='testkey2', field_value='testval2')
++            
++            expected = {
++                'msg': 'updated repo ID:%s %s' % (repo.repo_id, repo_name),
++                'repository': repo.get_api_data()
++            }
++            expected['repository']['ex_testkey1'] = 'testval1'
++            expected['repository']['ex_testkey2'] = 'testval2'
++            
++            updates = { 'extra_fields': { 'testkey3': 'otherval', }, }
++            id_, params = _build_data(self.apikey_regular, 'update_repo', repoid=repo_name, **updates)
++            response = api_call(self, params)
++
++            self._compare_ok(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
++    def test_api_update_repo_extra_field_disabled(self):
++        repo_name = 'admin_owned'
++        repo = fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
++        try:
++            RepoModel().grant_user_permission(repo=repo_name, user=self.TEST_USER_LOGIN, perm='repository.admin')
++            db.Setting.create_or_update('repository_fields', False, 'bool') # extra_fields disabled
++            fixture.create_repo_extra_field(repo, field_key='testkey1', field_value='testval1')
++            fixture.create_repo_extra_field(repo, field_key='testkey2', field_value='testval2')
++            
++            updates = { 'extra_fields': { 'testkey2': 'changeval', }, }
++            id_, params = _build_data(self.apikey_regular, 'update_repo', repoid=repo_name, **updates)
++            response = api_call(self, params)
++
++            expected = 'Extra field setting is disabled.'
++            self._compare_error(id_, expected, given=response.body)
++        finally:
++            fixture.destroy_repo(repo_name)
++
+     def test_api_delete_repo(self):
+         repo_name = 'api_delete_me'
+         fixture.create_repo(repo_name, repo_type=self.REPO_TYPE)
+diff --git a/kallithea/tests/fixture.py b/kallithea/tests/fixture.py
+index 1de045e11..6a97f763f 100644
+--- a/kallithea/tests/fixture.py
++++ b/kallithea/tests/fixture.py
+@@ -192,6 +192,19 @@ class Fixture(object):
+         RepoModel().delete(repo_name, **kwargs)
+         meta.Session().commit()
+ 
++    def create_repo_extra_field(self, repo, field_key, field_value, **kwargs):
++        field = db.RepositoryField()
++        field.repository = repo
++        field.field_type = 'str'
++        field.field_key = field_key
++        field.field_value = field_value
++        field.field_label = kwargs.get('field_label', '')
++        field.field_desc = kwargs.get('field_desc', '')
++        meta.Session().add(field)
++        meta.Session().commit()
++
++        return field
++
+     def create_repo_group(self, name, parent_group_id=None, cur_user=TEST_USER_ADMIN_LOGIN, **kwargs):
+         assert '/' not in name, (name, kwargs) # use group_parent_id to make nested groups
+         if 'skip_if_exists' in kwargs:
+-- 
+2.45.2.windows.1
+
