@@ -11,7 +11,7 @@ variable "KALLITHEA_PATCH_REV" {
 }
 
 variable "KALLITHEA_FLAVOR" {
-    default = ["patched-${KALLITHEA_PATCH_REV}", "patched2"]
+    default = ["private1"]
 }
 
 group "default" {
