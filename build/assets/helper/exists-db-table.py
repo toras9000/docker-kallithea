@@ -8,8 +8,7 @@ try:
 
     engine = sqlalchemy.engine.create_engine(db_uri)
     with engine.connect() as db:
-        db.connect()
-        exists = db.has_table(db_table)
+        exists = engine.has_table(db_table)
 
         if exists:
             sys.exit(0)

@@ -235,6 +235,39 @@ if [ -n "$KALLITHEA_DB_URL" ]; then
         KALLITHEA_SSH_URI_TEMPL=ssh://{system_user}@{hostname}:${KALLITHEA_EXTERNAL_SSH_PORT}/{repo}
         upsert_db_setting 'clone_ssh_tmpl' "$KALLITHEA_SSH_URI_TEMPL" 'unicode'
     fi
+    
+    # Force enable LDAP
+    LDAP_SETTINGS_WRITE=$KALLITHEA_LDAP_ENABLE
+    if [ -z "$KALLITHEA_LDAP_HOST" ];           then LDAP_SETTINGS_WRITE=no; fi
+    if [ -z "$KALLITHEA_LDAP_ATTR_LOGIN" ];     then LDAP_SETTINGS_WRITE=no; fi
+    if [ -z "$KALLITHEA_LDAP_ATTR_FIRSTNAME" ]; then LDAP_SETTINGS_WRITE=no; fi
+    if [ -z "$KALLITHEA_LDAP_ATTR_LASTNAME" ];  then LDAP_SETTINGS_WRITE=no; fi
+    if [ -z "$KALLITHEA_LDAP_ATTR_EMAIL" ];     then LDAP_SETTINGS_WRITE=no; fi
+    if [ "$LDAP_SETTINGS_WRITE" = "TRUE" ]; then
+        echo '... Enable LDAP Settings'
+        # add LDAP plugin
+        AUTH_PLUGINS=$(get_db_setting 'auth_plugins')
+        if [[ "$AUTH_PLUGINS" != *kallithea.lib.auth_modules.auth_ldap* ]]; then
+            upsert_db_setting 'auth_plugins' "${AUTH_PLUGINS},kallithea.lib.auth_modules.auth_ldap" 'list'
+        fi
+        
+        # LDAP settings
+        upsert_db_setting 'auth_ldap_enabled'        "True"                               'unicode'
+        upsert_db_setting 'auth_ldap_host'           "${KALLITHEA_LDAP_HOST}"             'unicode'
+        upsert_db_setting 'auth_ldap_port'           "${KALLITHEA_LDAP_PORT}"             'unicode'
+        upsert_db_setting 'auth_ldap_dn_user'        "${KALLITHEA_LDAP_DN_USER}"          'unicode'
+        upsert_db_setting 'auth_ldap_dn_pass'        "${KALLITHEA_LDAP_DN_PASS}"          'unicode'
+        upsert_db_setting 'auth_ldap_tls_kind'       "${KALLITHEA_LDAP_TLS_KIND:-LDAPS}"  'unicode'
+        upsert_db_setting 'auth_ldap_tls_reqcert'    "${KALLITHEA_LDAP_TLS_CERT:-NEVER}"  'unicode'
+        upsert_db_setting 'auth_ldap_cacertdir'      "${KALLITHEA_LDAP_CERT_DIR}"         'unicode'
+        upsert_db_setting 'auth_ldap_base_dn'        "${KALLITHEA_LDAP_BASE_DN}"          'unicode'
+        upsert_db_setting 'auth_ldap_filter'         "${KALLITHEA_LDAP_FILTER}"           'unicode'
+        upsert_db_setting 'auth_ldap_search_scope'   "${KALLITHEA_LDAP_SCOPE:-ONELEVEL}"  'unicode'
+        upsert_db_setting 'auth_ldap_attr_login'     "${KALLITHEA_LDAP_ATTR_LOGIN}"       'unicode'
+        upsert_db_setting 'auth_ldap_attr_firstname' "${KALLITHEA_LDAP_ATTR_FIRSTNAME}"   'unicode'
+        upsert_db_setting 'auth_ldap_attr_lastname'  "${KALLITHEA_LDAP_ATTR_LASTNAME}"    'unicode'
+        upsert_db_setting 'auth_ldap_attr_email'     "${KALLITHEA_LDAP_ATTR_EMAIL}"       'unicode'
+    fi
 fi
 
 echo "Start SSH server ..."
