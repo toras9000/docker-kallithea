@@ -25,7 +25,7 @@ RUN <<-EOL
     useradd -m -c '' -g kallithea kallithea
 EOL
 
-# Package version when installing by pip. ex.) 0.6.0
+# Package version when installing by pip. ex.) 0.7.0
 ARG KALLITHEA_VER=x.x.x
 
 RUN <<-EOL
@@ -34,9 +34,10 @@ RUN <<-EOL
     
     : This is only needed for kallithea installation.
     curl -sL https://deb.nodesource.com/setup_14.x | bash -
-    apt-get install -y --no-install-recommends                \
-                    build-essential libffi-dev pkg-config     \
-                    python3-dev libpq-dev libmysqlclient-dev  \
+    apt-get install -y --no-install-recommends                      \
+                    build-essential libffi-dev pkg-config           \
+                    python3-dev libpq-dev libmysqlclient-dev        \
+                    libldap2-dev libsasl2-dev slapd ldap-utils tox  \
                     nodejs
     
     : Build su-exec
@@ -52,7 +53,8 @@ RUN <<-EOL
     su-exec kallithea:kallithea python3 -m pip install --no-cache-dir --user                        \
                                                        kallithea${KALLITHEA_VER:+==$KALLITHEA_VER}  \
                                                        psycopg2                                     \
-                                                       mysqlclient
+                                                       mysqlclient                                  \
+                                                       python-ldap
     
     : Preparing the front-end files.
     su-exec kallithea:kallithea kallithea-cli front-end-build
