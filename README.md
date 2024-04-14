@@ -5,8 +5,8 @@ This image enables the SSH repository access function implemented in kallithea v
 
 ## Tags
 
-- 0.6.3
-    - Version 0.6.3 of the pip package.
+- 0.7.0
+    - Version 0.7.0 of the pip package.
 
 ## Data location
 
@@ -97,6 +97,13 @@ If a port number to be published externally is specified, update the SSH URL tem
 This setting is applied to the database.  
 This is a setting that can be updated in the Web UI.  
 
+- `KALLITHEA_LDAP_ENABLE`  
+If set to FORCE_ENABLE, change to enable LDAP authentication. (empty by default, not modify.)  
+This setting is applied to the database.  
+This is a setting that can be updated in the Web UI.  
+The UI and the following corresponding environment variables are set in the DB.  
+`KALLITHEA_LDAP_HOST`, `KALLITHEA_LDAP_PORT`, `KALLITHEA_LDAP_DN_USER`, `KALLITHEA_LDAP_DN_PASS`, `KALLITHEA_LDAP_TLS_KIND`, `KALLITHEA_LDAP_TLS_CERT`, `KALLITHEA_LDAP_CERT_DIR`, `KALLITHEA_LDAP_BASE_DN`, `KALLITHEA_LDAP_FILTER`, `KALLITHEA_LDAP_SCOPE`, `KALLITHEA_LDAP_ATTR_LOGIN`, `KALLITHEA_LDAP_ATTR_FIRSTNAME`, `KALLITHEA_LDAP_ATTR_LASTNAME`, `KALLITHEA_LDAP_ATTR_EMAIL`
+
 - `KALLITHEA_DB_MIGRATION`  
 If set to TRUE (capitals exactly), it will run in migration assistance mode. (empty by default)  
 The support mode does not execute normal services, but functions as a migration execution support tool when upgrading.  
@@ -110,7 +117,7 @@ The following is an example of a simple docker-compose.yml for Sqlite.
 ```
 services:
   app:
-    image: toras9000/kallithea-mp:0.6.3
+    image: toras9000/kallithea-mp:0.7.0
     restart: unless-stopped
     ports:
       - "8010:5000"

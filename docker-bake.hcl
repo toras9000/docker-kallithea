@@ -3,7 +3,7 @@ variable "WITH_LATEST_TAG" {
 }
 
 variable "KALLITHEA_IMAGE_VER" {
-    default = "0.6.3"
+    default = "0.7.0"
 }
 
 variable "KALLITHEA_FLAVOR" {
