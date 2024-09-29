@@ -21,7 +21,7 @@ services:
       - POSTGRES_DB=kallithea_store
 
   app:
-    image: toras9000/kallithea-mp:0.7.0-patched2
+    image: toras9000/kallithea-mp:0.7.0-patched3
     restart: unless-stopped
     depends_on:
       db:

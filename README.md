@@ -7,8 +7,8 @@ This image enables the SSH repository access function implemented in kallithea v
 
 - 0.7.0
     - Version 0.7.0 of the pip package.
-- 0.7.0-patched2
-    - Version overwritten with [changesets from the official source](https://kallithea-scm.org/repos/kallithea/changelog/36a36ebdf4bbc4da77c41cabdbdf4a688e8fbeea/).
+- 0.7.0-patched3
+    - Version overwritten with [changesets from the official source](https://kallithea-scm.org/repos/kallithea/changelog/fe050a93936b31b8b6caed82e3745a2d1c1b3068/).
 
 ## Data location
 

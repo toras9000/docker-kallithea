@@ -7,11 +7,11 @@ variable "KALLITHEA_IMAGE_VER" {
 }
 
 variable "KALLITHEA_PATCH_REV" {
-    default = "36a36ebdf4bb"
+    default = "fe050a93936b"
 }
 
 variable "KALLITHEA_FLAVOR" {
-    default = ["patched-${KALLITHEA_PATCH_REV}", "patched2"]
+    default = ["patched-${KALLITHEA_PATCH_REV}", "patched3"]
 }
 
 group "default" {
